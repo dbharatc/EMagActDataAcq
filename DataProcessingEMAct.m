@@ -73,10 +73,10 @@ end
 
 if measSet.force
     figure(1)
-    plot(timeVec,forceData.Fz,timeVec,currData);
-    legend('Measured axial force (N)','Current thru actuator (A)')
+    plot(timeVec,forceData.Fz,timeVec,sqrt(forceData.Fx.^2+forceData.Fy.^2),timeVec,currData);
+    legend('Measured axial force (N)','Measured radial force (N)','Current thru actuator (A)')
     xlabel('Time (s)')
-    title("Axial force of the actuator, "+num2str(currPP,'%.2f')+" A p-p" )
+    title("Force of the actuator, "+num2str(currPP,'%.2f')+" A p-p" )
 end
 
 if measSet.therm

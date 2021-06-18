@@ -23,8 +23,8 @@ measSet.thermCh = "11";
 % Modes and measurement lengths
 measSet.mode = 'chirp';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
 
-measSet.measTime = 4.2;  % Measurement is x second long. Note that this is inclusive of the set zero padding
 measSet.zPadLen = .1;  % zero pad time in secs
+measSet.measTime = 4+2*measSet.zPadLen;  % Measurement is x second long. Note that this is inclusive of the set zero padding
 
 measSet.nReps = 3;   % Repetitions to clean up the data
 
@@ -33,8 +33,8 @@ dq = daq("digilent");
 
 if measSet.ldv
     ch_in1 = addinput(dq, "AD1", measSet.ldvCh, "Voltage");   % Ch 1 used for LDV measurement
-    measSet.ldvScaling = 500;    % CAUTION!!! - Make sure LDV range is set appropriately. 
-    % 500 for 100Hz and up if you have 1A pp. 20 is best for <20 Hz. Note that 
+    measSet.ldvScaling = 500;    % CAUTION!!! - Make sure LDV range is set appropriately.
+    % 500 for 100Hz and up if you have 1A pp. 20 is best for <20 Hz. Note that
     % this is fullscale value, actual scaling factor is divided by 4.
 end
 if measSet.curr
@@ -42,7 +42,7 @@ if measSet.curr
 end
 if measSet.force
     for i = 1:length(measSet.forceCh)   % Ch 5-10 used for force sensor measurements
-        addinput(dq, "AD1", measSet.forceCh(i), "Voltage");   
+        addinput(dq, "AD1", measSet.forceCh(i), "Voltage");
     end
 end
 if measSet.therm
@@ -87,14 +87,14 @@ switch mode
     case 'sine'
         srcSig = swGain*sin(2*pi*timeVec*freqIntrst);
         srcSig = [zPad srcSig zPad];    % manually handling zero padding. Not windowing for simplicity
-    
+        
         % add a pulse in the beginning for synchronizing repetitions if reqd
     case 'chirp'
         srcSig = swGain*chirp(timeVec,freqIntrst(1),timeVec(end),freqIntrst(2),'linear');  % Decide on linear vs logarithmic
         srcSig = [zPad srcSig zPad];    % manually handling zero padding. Not windowing for simplicity
         
     case 'square'
-        srcSig = swGain*square(2*pi*timeVec*freqIntrst);  % square fn included inSignal processing toolbox 
+        srcSig = swGain*square(2*pi*timeVec*freqIntrst);  % square fn included inSignal processing toolbox
         srcSig = [zPad srcSig zPad];    % manually handling zero padding. Not windowing for simplicity
         
     case 'dc_steps'
@@ -122,13 +122,13 @@ measmnts.forceData.Fz = zeros(length(srcSig),nReps);
 measmnts.thermData = zeros(length(srcSig),nReps);
 
 % If force sensor bias measurements aren't preesent in workspace, retake
-if measSet.force 
+if measSet.force
     if ~exist('forceBias','var')
         input('Re-taking force bias measurements. Please acknowledge that there is nothing contacting the force sensor')
-        forceBias = forceBiasMeas(dq,measSet); 
+        forceBias = forceBiasMeas(dq,measSet);
     end
     measSet.forceBias = forceBias;
-    measSet.MFx=[0.00364 -0.04142 -0.16003 -1.67055 0.09189 1.63189];   % scaling matrix from Mengji's models. I assume these values are directly from the ATI weebsite
+    measSet.MFx=[0.00364 -0.04142 -0.16003 -1.67055 0.09189 1.63189];   % scaling matrix from Mengjia's models. I assume these values are directly from the ATI weebsite
     measSet.MFy=[0.05623 2.02388 -0.09620 -1.00659 -0.04977 -0.91361];
     measSet.MFz=[1.57108 -0.04694 1.92652 -0.04539 1.88337 -0.07715];
     measSet.MTx=[0.59557 12.2419 10.2107 -6.39444 -10.74076 -5.12130];
@@ -188,17 +188,17 @@ function forceBias = forceBiasMeas(dq,measSet)
 % Function which identifies the bias currently experienced by the force
 % sensor
 
-    zeroSig = zeros(12*measSet.fs,1);   % 12 second long zero signal
-    outScanData = zeroSig';
-    [inputDat,~] = readwrite(dq,outScanData);
-    fn = fieldnames(inputDat);
-    biasVec = zeros(length(zeroSig),length(measSet.forceCh));
-    for i = 1:length(measSet.forceCh)
-        biasVec(:,i) = inputDat.(fn{i+5});  % There'll be an offset, 
-        % determine the exact value by looking at structure of inputDat.
-        % For ex, Ch 5 will be inputDat.AD1_5, see if we're getting this
-    end
-    forceBias = mean(biasVec);
+zeroSig = zeros(12*measSet.fs,1);   % 12 second long zero signal
+outScanData = zeroSig';
+[inputDat,~] = readwrite(dq,outScanData);
+fn = fieldnames(inputDat);
+biasVec = zeros(length(zeroSig),length(measSet.forceCh));
+for i = 1:length(measSet.forceCh)
+    biasVec(:,i) = inputDat.(fn{i+5});  % There'll be an offset,
+    % determine the exact value by looking at structure of inputDat.
+    % For ex, Ch 5 will be inputDat.AD1_5, see if we're getting this
+end
+forceBias = mean(biasVec);
 end
 
 

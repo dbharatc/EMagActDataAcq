@@ -28,13 +28,13 @@ if measSet.ldv
         velData = filter(b,a,measmnts.velData);
         velData = mean(velData,2);
     end
-    accData = [diff(medfilt1(velData,10))*fs;0];     % accelerations in m/s^2, divide by 9.8 for units in g
+    accData = [diff(medfilt1(velData,10))*measSet.fs;0];     % accelerations in m/s^2, divide by 9.8 for units in g
     accDataFilt = movmean(accData,10);
     %accDataFilt = medfilt1(accData,10); % some simple cleanup
     
-    posData = cumtrapz(velData)/fs;    % position in m
+    posData = cumtrapz(velData)/measSet.fs;    % position in m. NOTE - examine this further
     
-    timeVec = measSet.measTimeVec;
+    timeVec = measmnts.measTimeVec;
     
 end
 
@@ -67,7 +67,7 @@ if measSet.ldv
     plot(timeVec,accDataFilt/9.8,timeVec,currData);
     legend('Measured Acc (g)','Current thru actuator (A)')
     xlabel('Time (s)')
-    title("Acceleration of the actuator, "+num2str(freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
+    title("Acceleration of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
     
 end
 
@@ -91,22 +91,22 @@ end
 %% Mode specific stuff
 
 if measSet.ldv
-    switch mode
+    switch measSet.mode
         case 'sine'
             figure(2)
-            plot(timeVec,velData,timeVec,currData);
-            legend('Measured Velocity (m/sec)','Current thru actuator (A)')
+            plot(timeVec,velData*1000,timeVec,currData);
+            legend('Measured Velocity (m,/sec)','Current thru actuator (A)')
             xlabel('Time (s)')
-            title("Velocity of the actuator, "+num2str(freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
+            title("Velocity of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
             
             figure(3)
-            plot(timeVec,detrend(posData)*1000,timeVec,currData);
-            legend('Measured Pos (mm)','Current thru actuator (A)')
+            plot(timeVec,detrend(posData)*10^6,timeVec,currData);
+            legend('Measured Pos (um)','Current thru actuator (A)')
             xlabel('Time (s)')
-            title("Measured position of the actuator, "+num2str(freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p")
+            title("Measured position of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p")
             
             figure(4)
-            thd(velData,fs);    % add an output argument to supress the plot and save the info
+            thd(velData,measSet.fs);    % add an output argument to supress the plot and save the info
             xlim([0 1]);    % Limit the plot to 1kHz
             %%
         case  'chirp'
@@ -117,7 +117,7 @@ if measSet.ldv
             title("Velocity of the actuator, "+num2str(currPP,'%.2f')+" A p-p" )
             
             figure(3)
-            [TFxy,Freq] = tfestimate(srcSig,accData,[],[],[],fs);
+            [TFxy,Freq] = tfestimate(srcSig,accData,[],[],[],measSet.fs);
             plot(Freq,20*log10(abs(TFxy)))
             xlabel('Frequency')
             ylabel('Magnitude response (in db)')
@@ -129,13 +129,13 @@ if measSet.ldv
             plot(timeVec,velData,timeVec,currData);
             legend('Measured Velocity (m/sec)','Current thru actuator (A)')
             xlabel('Time (s)')
-            title("Velocity of the actuator, "+num2str(freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
+            title("Velocity of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
             
             figure(2)
-            plot(timeVec,detrend(cumtrapz((velData-mean(velData))/fs),1)*1000,timeVec,currData);
+            plot(timeVec,detrend(cumtrapz((velData-mean(velData))/measSet.fs),1)*1000,timeVec,currData);
             legend('Measured Pos (mm)','Current thru actuator (A)')
             xlabel('Time (s)')
-            title("Measured position of the actuator, "+num2str(freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p")
+            title("Measured position of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p")
     end
     
 end

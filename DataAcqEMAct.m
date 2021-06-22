@@ -21,9 +21,9 @@ measSet.thermCh = "11";
 
 
 % Modes and measurement lengths
-measSet.mode = 'chirp';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
+measSet.mode = 'sine';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
 
-swGain = .2;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
+swGain = 2;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
 % CAUTION - Do not exceed gain of 3 beyond a couple of seconds, and NEVER
 % exceed 4, at risk of burning out the coil or causing excessive wear
 if swGain > 4
@@ -32,7 +32,7 @@ end
 
 switch measSet.mode
     case 'sine'
-        measSet.freqIntrst = 4;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
+        measSet.freqIntrst = 20;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
     case 'chirp'
         measSet.freqIntrst = [.5 1000];
     case 'square'
@@ -52,7 +52,7 @@ dq = daq("digilent");
 
 if measSet.ldv
     ch_in1 = addinput(dq, "AD1", measSet.ldvCh, "Voltage");   % Ch 1 used for LDV measurement
-    measSet.ldvScaling = 500;    % CAUTION!!! - Make sure LDV range is set appropriately.
+    measSet.ldvScaling = 20;    % CAUTION!!! - Make sure LDV range is set appropriately.
     % 500 for 100Hz and up if you have 1A pp. 20 is best for <20 Hz. Note that
     % this is fullscale value, actual scaling factor is divided by 4.
 end

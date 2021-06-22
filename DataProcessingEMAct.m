@@ -132,7 +132,7 @@ if measSet.ldv
             xlabel('Time (s)')
             title("Velocity of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
             
-            figure(2)
+            figure(3)
             plot(timeVec,detrend(cumtrapz((velData-mean(velData))/measSet.fs),1)*1000,timeVec,currData);
             legend('Measured Pos (mm)','Current thru actuator (A)')
             xlabel('Time (s)')

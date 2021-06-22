@@ -27,6 +27,7 @@ if measSet.ldv
     if ndims(measmnts.velData) == 2  % Lowpass and Collapse to a single channel by averaging across repetitions
         velData = filter(b,a,measmnts.velData);
         velData = mean(velData,2);
+        velData = detrend(velData);
     end
     accData = [diff(medfilt1(velData,10))*measSet.fs;0];     % accelerations in m/s^2, divide by 9.8 for units in g
     accDataFilt = movmean(accData,10);
@@ -95,7 +96,7 @@ if measSet.ldv
         case 'sine'
             figure(2)
             plot(timeVec,velData*1000,timeVec,currData);
-            legend('Measured Velocity (m,/sec)','Current thru actuator (A)')
+            legend('Measured Velocity (mm/sec)','Current thru actuator (A)')
             xlabel('Time (s)')
             title("Velocity of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
             

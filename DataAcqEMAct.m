@@ -15,22 +15,41 @@ measSet.ldv = false;
 measSet.force = true;
 measSet.therm = true;
 
-
-% DAQ Specific
-daqTag = "Dev4";
-measSet.voltCh = "ai"+"0";    % Set up channels. NOTE that if you modify this, modify forceBiasMeas and parseData accordingly
-measSet.currCh = "ai"+"1";
-measSet.ldvCh = "ai"+"2";
-measSet.forceCh = "ai"+["3" "4" "5" "6" "7" "13"];
-measSet.thermCh = "ai"+"10";
-
-
 % Modes and measurement lengths
+measSet.measTime = 3;  % Measurement is x second long. Note that zero padding is added in addition to this
+measSet.zPadLen = .1;  % zero pad time in secs
+measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
+measSet.nReps = 3;   % Repetitions to clean up the data
+
 measSet.mode = 'sine';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
 
-swGain = 1;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
-% CAUTION - Do not exceed gain of 3 beyond a couple of seconds, and NEVER
-% exceed 4, at risk of burning out the coil or causing excessive wear
+if ~exist('run','var')
+    run = 1;
+end
+
+currTargetSet = true;   % Decide if we want to specify a current target so that the swGain is set following a brief calibration phase (This same script run for a shorter time)
+currTarget = 1;     % Current target, in Amps p-p (AC) or Amps (DC).
+% This assumes linearity of the current measurement with the scaling of
+% voltage. NOTE - Verify how well this is working, and try and ensure that
+% there is no clipping.
+
+if run == 1
+    if currTargetSet
+        % Overwrite settings
+        measSet.measTime = 1;  % Measurement is x second long. Note that zero padding is added in addition to this
+        measSet.zPadLen = .05;  % zero pad time in secs
+        measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
+        measSet.nReps = 3;   % Repetitions to clean up the data
+        
+        swGain = .5;    % Start with a low value for scalability
+        recordFlag = false;
+    else
+        swGain = 1;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
+        % CAUTION - Do not exceed gain of 3 beyond a couple of seconds, and NEVER
+        % exceed 4, at risk of burning out the coil or causing excessive wear
+        recordFlag = true;
+    end
+end
 if swGain > 4
     error("Reduce sw gain");
 end
@@ -42,19 +61,22 @@ switch measSet.mode
         measSet.freqIntrst = [.5 1000];
     case 'square'
         measSet.freqIntrst = 2;
+        measSet.normDCOff = .5;
     case 'dc_steps'
         nSteps = 11;  % Number of frequency levels b/w -ve amp and + amp. Make sure this is odd to include 0
         warning('Please ensure that measTime*fs is cleanly divided by nSteps, else this gets messy')
 end
 
-measSet.zPadLen = .1;  % zero pad time in secs
-measSet.measTime = 3+2*measSet.zPadLen;  % Measurement is x second long. Note that this is inclusive of the set zero padding
-
-measSet.nReps = 3;   % Repetitions to clean up the data
-
-
 % Define Daq, input & output channels
 dq = daq("ni");
+
+% DAQ Specific
+daqTag = "Dev4";
+measSet.voltCh = "ai"+"0";    % Set up channels. NOTE that if you modify this, modify forceBiasMeas and parseData accordingly
+measSet.currCh = "ai"+"1";
+measSet.ldvCh = "ai"+"2";
+measSet.forceCh = "ai"+["3" "4" "5" "6" "7" "13"];
+measSet.thermCh = "ai"+"10";
 
 dq.Rate = 20000;    % Doesn't always work. Do some testing to ensure that this fs is supported
 measSet.fs = dq.Rate;
@@ -111,11 +133,11 @@ switch measSet.mode
         srcSig = [zPad srcSig zPad];    % manually handling zero padding. Not windowing for simplicity
         
     case 'square'
-        srcSig = swGain*square(2*pi*timeVec*measSet.freqIntrst);  % square fn included inSignal processing toolbox
+        srcSig = swGain*(square(2*pi*timeVec*measSet.freqIntrst)+2*measSet.normDCOffset);  % square fn included in Signal processing toolbox
         srcSig = [zPad srcSig zPad];    % manually handling zero padding. Not windowing for simplicity
         
     case 'dc_steps'
-        amp = linspace(-swGain, swGain, n+Steps);
+        amp = linspace(-swGain, swGain, nSteps);
         for i = 1:nSteps
             indPerStep = round(measSet.measTime*measSet.fs/nSteps);     % indices per step
             srcSig(((i-1)*indPerStep +1): i*indPerStep) = amp(i)*ones(1,indPerStep);
@@ -191,21 +213,36 @@ end
 
 if measSet.curr         % Current is pretty mandatory, but including it anyway
     currDataFilt = movmean(measmnts.currData,20);
-    currPP = mean(max(currDataFilt)-min(currDataFilt));
+    currPP = mean(max(currDataFilt)-min(currDataFilt));     % One disadvantage of this is that it measures current at low freqs. Will have to do something slightly more complicated if we want current at a spcific freq
 end
 
 
 %% Record to file
-
-endTag = datetime('now','Format','M_d_yy__HH_mm_ss')   ;      % can make this just a regular measurement number (iterated for reps) or datetime
-if strcmp(measSet.mode,'chirp')
-    fName = "Data/" + string(measSet.mode) + "_" + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
-else
-    fName = "Data/" + string(measSet.mode) + "_" + num2str(measSet.freqIntrst,'%.1f') + "_Hz_" + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
+if recordFlag
+    endTag = datetime('now','Format','M_d_yy__HH_mm_ss')   ;      % can make this just a regular measurement number (iterated for reps) or datetime
+    if strcmp(measSet.mode,'chirp')
+        fName = "Data/" + string(measSet.mode) + "_" + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
+    else
+        fName = "Data/" + string(measSet.mode) + "_" + num2str(measSet.freqIntrst,'%.1f') + "_Hz_" + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
+    end
+    
+    save(fName,'measmnts','measSet','srcSig','currPP');     % Probably easier as all processing is in matlab
+    %writematrix(data,fName);
 end
 
-save(fName,'measmnts','measSet','srcSig','currPP');     % Probably easier as all processing is in matlab
-%writematrix(data,fName);
+%% Recompute swGain if specified, reset the run
+if currTargetSet
+    recordFlag = true;  % Set it up so data is recorded for the next trial
+    
+    if run == 1
+        swGain = swGain * currTarget / currPP;    % Compute updated sw gain
+        run = run + 1;
+        DataAcqEMAct;   % Start the next run with the actual specified values
+    else
+        clearvars run;
+    end
+    
+end
 
 
 %% Function definitions

@@ -9,21 +9,26 @@ clearvars -except forceBias;
 %% Setup
 
 % Setup up the measurement channels
-measSet.ldv = true;
+measSet.volt = true;
 measSet.curr = true;
-measSet.force = false;
-measSet.therm = false;
+measSet.ldv = false;
+measSet.force = true;
+measSet.therm = true;
 
-measSet.ldvCh = "1";    % Set up channels. NOTE that if you modify this, modify forceBiasMeas and parseData accordingly
-measSet.currCh = "2";
-measSet.forceCh = string(5:10);
-measSet.thermCh = "11";
+
+% DAQ Specific
+daqTag = "Dev4";
+measSet.voltCh = "ai"+"0";    % Set up channels. NOTE that if you modify this, modify forceBiasMeas and parseData accordingly
+measSet.currCh = "ai"+"1";
+measSet.ldvCh = "ai"+"2";
+measSet.forceCh = "ai"+["3" "4" "5" "6" "7" "13"];
+measSet.thermCh = "ai"+"10";
 
 
 % Modes and measurement lengths
 measSet.mode = 'sine';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
 
-swGain = 2;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
+swGain = 1;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
 % CAUTION - Do not exceed gain of 3 beyond a couple of seconds, and NEVER
 % exceed 4, at risk of burning out the coil or causing excessive wear
 if swGain > 4
@@ -32,7 +37,7 @@ end
 
 switch measSet.mode
     case 'sine'
-        measSet.freqIntrst = 20;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
+        measSet.freqIntrst = 400;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
     case 'chirp'
         measSet.freqIntrst = [.5 1000];
     case 'square'
@@ -43,40 +48,52 @@ switch measSet.mode
 end
 
 measSet.zPadLen = .1;  % zero pad time in secs
-measSet.measTime = 4+2*measSet.zPadLen;  % Measurement is x second long. Note that this is inclusive of the set zero padding
+measSet.measTime = 3+2*measSet.zPadLen;  % Measurement is x second long. Note that this is inclusive of the set zero padding
 
 measSet.nReps = 3;   % Repetitions to clean up the data
 
-% Define Daq, input & output channels
-dq = daq("digilent");
 
-if measSet.ldv
-    ch_in1 = addinput(dq, "AD1", measSet.ldvCh, "Voltage");   % Ch 1 used for LDV measurement
-    measSet.ldvScaling = 20;    % CAUTION!!! - Make sure LDV range is set appropriately.
-    % 500 for 100Hz and up if you have 1A pp. 20 is best for <20 Hz. Note that
-    % this is fullscale value, actual scaling factor is divided by 4.
+% Define Daq, input & output channels
+dq = daq("ni");
+
+dq.Rate = 20000;    % Doesn't always work. Do some testing to ensure that this fs is supported
+measSet.fs = dq.Rate;
+
+% Output channels
+ch_out = addoutput(dq, daqTag, "ao0", "Voltage");
+
+% Define inputs
+if measSet.volt
+    ch_in1 = addinput(dq,daqTag, measSet.voltCh, "Voltage");   % Ch 1 used for current measurement
 end
 if measSet.curr
-    ch_in2 = addinput(dq, "AD1", measSet.currCh, "Voltage");   % Ch 2 used for current measurement
+    ch_in2 = addinput(dq, daqTag, measSet.currCh, "Voltage");   % Ch 2 used for current measurement
+end
+if measSet.ldv
+    ch_in3 = addinput(dq, daqTag, measSet.ldvCh, "Voltage");   % Ch 1 used for LDV measurement
+    measSet.ldvScaling = 500;    % CAUTION!!! - Make sure LDV range is set appropriately.
+    % 500 for 100Hz and up if you have 1A pp. 20 is best for <20 Hz. Note that
+    % this is fullscale value, actual scaling factor is divided by 4.
+    ch_in3.TerminalConfig = 'SingleEnded';
 end
 if measSet.force
-    for i = 1:length(measSet.forceCh)   % Ch 5-10 used for force sensor measurements
-        addinput(dq, "AD1", measSet.forceCh(i), "Voltage");
+    for i = 1:length(measSet.forceCh)   % Ch x-x2 used for force sensor measurements
+        ch_inF{i} = addinput(dq, daqTag, measSet.forceCh(i), "Voltage");
+        ch_inF{i}.TerminalConfig = 'SingleEnded';
+    end
+    
+    % If force sensor bias measurements aren't preesent in workspace, retake
+    if ~exist('forceBias','var')
+        input('Re-taking force bias measurements. Please acknowledge that there is nothing contacting the force sensor')
+        forceBias = forceBiasMeas(dq,measSet);
     end
 end
 if measSet.therm
-    ch_in11 = addinput(dq, "AD1", measSet.thermCh, "Voltage");   % Ch 11 used for current measurement
+    ch_in10 = addinput(dq, daqTag, measSet.thermCh, "Voltage");   % Ch 15 used for current measurement
+    ch_in10.TerminalConfig = 'SingleEnded';
+    %input('Confirm that battery is connected to the breadboard, and calibration was redone today');
 end
 
-ch_out = addoutput(dq, "AD1", "1", "Voltage");
-
-dq.Rate = 40000;    % Doesn't always work. Do some testing to ensure that this fs is supported
-measSet.fs = dq.Rate;
-
-% If force sensor bias measurements aren't preesent in workspace, retake
-if measSet.force && ~exist('forceBias','var')
-    forceBiasMeas(dq,MeasSet);
-end
 
 %% Signal Definitions
 
@@ -115,6 +132,7 @@ end
 
 % Define all measurement signals anyway
 measmnts.velData = zeros(length(srcSig),measSet.nReps);
+measmnts.voltData = zeros(length(srcSig),measSet.nReps);
 measmnts.currData = zeros(length(srcSig),measSet.nReps);
 measmnts.forceData.Fx = zeros(length(srcSig),measSet.nReps);
 measmnts.forceData.Fy = zeros(length(srcSig),measSet.nReps);
@@ -124,8 +142,7 @@ measmnts.thermData = zeros(length(srcSig),measSet.nReps);
 % If force sensor bias measurements aren't preesent in workspace, retake
 if measSet.force
     if ~exist('forceBias','var')
-        input('Re-taking force bias measurements. Please acknowledge that there is nothing contacting the force sensor')
-        forceBias = forceBiasMeas(dq,measSet);
+        error('Force bias measmnts missing. Please run script from the beginning')
     end
     measSet.forceBias = forceBias;
     measSet.MFx=[0.00364 -0.04142 -0.16003 -1.67055 0.09189 1.63189];   % scaling matrix from Mengjia's models. I assume these values are directly from the ATI weebsite
@@ -146,6 +163,9 @@ for i = 1:measSet.nReps
     
     if measSet.ldv
         measmnts.velData(:,i) = procData.velData;
+    end
+    if measSet.volt
+        measmnts.voltData(:,i) = procData.voltData;
     end
     if measSet.curr
         measmnts.currData(:,i) = procData.currData;
@@ -195,12 +215,12 @@ function forceBias = forceBiasMeas(dq,measSet)
 % sensor
 
 zeroSig = zeros(12*measSet.fs,1);   % 12 second long zero signal
-outScanData = zeroSig';
+outScanData = zeroSig;
 [inputDat,~] = readwrite(dq,outScanData);
 fn = fieldnames(inputDat);
 biasVec = zeros(length(zeroSig),length(measSet.forceCh));
 for i = 1:length(measSet.forceCh)
-    biasVec(:,i) = inputDat.(fn{i+5});  % There'll be an offset,
+    biasVec(:,i) = inputDat.(fn{i+2});  % There'll be an offset,
     % determine the exact value by looking at structure of inputDat.
     % For ex, Ch 5 will be inputDat.AD1_5, see if we're getting this
 end
@@ -210,41 +230,46 @@ end
 
 function procData = parseData(inputDat, measSet)
 % Function which handles required data processing for data streams of each
-% modality
+% modality. Do modify the exact channel parameter field name details for
+% inputDat as reqd
 
 fn = fieldnames(inputDat);
 % Make sure you determine the exact channels to read in inputDat.
 % For ex, Ch 5 will be inputDat.AD1_5, see if we're getting this
 
-if measSet.ldv
-    procData.velData = inputDat.(fn{1})*measSet.ldvScaling/(4*1000);    % velocities in m/s. Make sure names are accurate
-    if max(inputDat.(fn{2})) > 3.9    % Throw a potential overrange warning (LDV voltage is supposed to be below 4V)
-        warning('Overrange error for LDV')
-    end
+if measSet.volt
+    procData.voltData = inputDat.(fn{1})*10;  % Voltage in volts. Based on some tests, figure out if a voltage divider ckt (or a 10x probe) is reqd
 end
 
 if measSet.curr
     procData.currData = inputDat.(fn{2})/.22;  % Current in amps. Measured Voltage across a .22ohm shunt resistor. Ensure correct channel is processed
 end
 
+if measSet.ldv
+    procData.velData = inputDat.(fn{3})*measSet.ldvScaling/(4*1000);    % velocities in m/s. Make sure names are accurate
+    if max(inputDat.(fn{2})) > 3.9    % Throw a potential overrange warning (LDV voltage is supposed to be below 4V)
+        warning('Overrange error for LDV')
+    end
+end
+
 if measSet.force
-    rawMeas = zeros(length(inputDat.Time),measSet.forceCh);
+    rawMeas = zeros(length(inputDat.Time),length(measSet.forceCh));
     
     for i = 1:length(measSet.forceCh)
-        rawMeas(:,i) = inputDat.(fn{i+4});  % Raw measurements from the daq
+        rawMeas(:,i) = inputDat.(fn{i+2});  % Raw measurements from the daq
     end
     
     biasRemMeas = rawMeas - measSet.forceBias;  % Remove the bias measurements
-    procData.forceData.Fx = biasRemMeas*measSet.MFx;    % Multiply with the scaling matrix
-    procData.forceData.Fy = biasRemMeas*measSet.MFy;
-    procData.forceData.Fz = biasRemMeas*measSet.MFz;
+    procData.forceData.Fx = biasRemMeas*measSet.MFx';    % Multiply with the scaling matrix
+    procData.forceData.Fy = biasRemMeas*measSet.MFy';
+    procData.forceData.Fz = biasRemMeas*measSet.MFz';
     
 end
 
 if measSet.therm
-    ambientT = 20;  % Measure ambient temperature with a meter
-    scaleFact = 1/.0041276;     % Scale factor based on k-type gradations and ampolification. Modify as reqd, will need a brief calibration
-    procData.thermData = inputDat.(fn{11})*scaleFact + ambientT;  % Temperature in degrees celcius
+    ambientT = 22.5;  % Measure ambient temperature with a meter
+    scaleFact = 1/.0041276;     % Scale factor based on k-type gradations and amplification. Modify as reqd, will need a brief calibration
+    procData.thermData = inputDat.(fn{9})*scaleFact + ambientT;  % Temperature in degrees celcius
 end
 
 end

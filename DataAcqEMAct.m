@@ -14,6 +14,8 @@ measSet.curr = true;
 measSet.ldv = false;
 measSet.force = true;
 measSet.therm = true;
+% NOTE that if you modify the channels being used, modify forceBiasMeas and
+% parseData functions appropriately
 
 % Modes and measurement lengths
 measSet.measTime = 3;  % Measurement is x second long. Note that zero padding is added in addition to this
@@ -22,6 +24,19 @@ measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
 measSet.nReps = 3;   % Repetitions to clean up the data
 
 measSet.mode = 'sine';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
+
+switch measSet.mode
+    case 'sine'
+        measSet.freqIntrst = 400;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
+    case 'chirp'
+        measSet.freqIntrst = [.5 1000];
+    case 'square'
+        measSet.freqIntrst = 2;
+        measSet.normDCOff = .5;
+    case 'dc_steps'
+        nSteps = 11;  % Number of frequency levels b/w -ve amp and + amp. Make sure this is odd to include 0
+        warning('Please ensure that measTime*fs is cleanly divided by nSteps, else this gets messy')
+end
 
 if ~exist('run','var')
     run = 1;
@@ -54,25 +69,13 @@ if swGain > 4
     error("Reduce sw gain");
 end
 
-switch measSet.mode
-    case 'sine'
-        measSet.freqIntrst = 400;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
-    case 'chirp'
-        measSet.freqIntrst = [.5 1000];
-    case 'square'
-        measSet.freqIntrst = 2;
-        measSet.normDCOff = .5;
-    case 'dc_steps'
-        nSteps = 11;  % Number of frequency levels b/w -ve amp and + amp. Make sure this is odd to include 0
-        warning('Please ensure that measTime*fs is cleanly divided by nSteps, else this gets messy')
-end
 
 % Define Daq, input & output channels
 dq = daq("ni");
 
 % DAQ Specific
 daqTag = "Dev4";
-measSet.voltCh = "ai"+"0";    % Set up channels. NOTE that if you modify this, modify forceBiasMeas and parseData accordingly
+measSet.voltCh = "ai"+"0";    % Set up channels. 
 measSet.currCh = "ai"+"1";
 measSet.ldvCh = "ai"+"2";
 measSet.forceCh = "ai"+["3" "4" "5" "6" "7" "13"];
@@ -124,7 +127,7 @@ zPad = zeros(1,round(measSet.zPadLen*measSet.fs));
 
 switch measSet.mode
     case 'sine'
-        srcSig = swGain*sin(2*pi*timeVec*measSet.freqIntrst);
+        srcSig = swGain*sin(2*pi*timeVec*measSet.freqIntrst);   % Not windowing for now   
         srcSig = [zPad srcSig zPad];    % manually handling zero padding. Not windowing for simplicity
         
         % add a pulse in the beginning for synchronizing repetitions if reqd
@@ -245,68 +248,3 @@ if currTargetSet
 end
 
 
-%% Function definitions
-
-function forceBias = forceBiasMeas(dq,measSet)
-% Function which identifies the bias currently experienced by the force
-% sensor
-
-zeroSig = zeros(12*measSet.fs,1);   % 12 second long zero signal
-outScanData = zeroSig;
-[inputDat,~] = readwrite(dq,outScanData);
-fn = fieldnames(inputDat);
-biasVec = zeros(length(zeroSig),length(measSet.forceCh));
-for i = 1:length(measSet.forceCh)
-    biasVec(:,i) = inputDat.(fn{i+2});  % There'll be an offset,
-    % determine the exact value by looking at structure of inputDat.
-    % For ex, Ch 5 will be inputDat.AD1_5, see if we're getting this
-end
-forceBias = mean(biasVec);
-end
-
-
-function procData = parseData(inputDat, measSet)
-% Function which handles required data processing for data streams of each
-% modality. Do modify the exact channel parameter field name details for
-% inputDat as reqd
-
-fn = fieldnames(inputDat);
-% Make sure you determine the exact channels to read in inputDat.
-% For ex, Ch 5 will be inputDat.AD1_5, see if we're getting this
-
-if measSet.volt
-    procData.voltData = inputDat.(fn{1})*10;  % Voltage in volts. Based on some tests, figure out if a voltage divider ckt (or a 10x probe) is reqd
-end
-
-if measSet.curr
-    procData.currData = inputDat.(fn{2})/.22;  % Current in amps. Measured Voltage across a .22ohm shunt resistor. Ensure correct channel is processed
-end
-
-if measSet.ldv
-    procData.velData = inputDat.(fn{3})*measSet.ldvScaling/(4*1000);    % velocities in m/s. Make sure names are accurate
-    if max(inputDat.(fn{2})) > 3.9    % Throw a potential overrange warning (LDV voltage is supposed to be below 4V)
-        warning('Overrange error for LDV')
-    end
-end
-
-if measSet.force
-    rawMeas = zeros(length(inputDat.Time),length(measSet.forceCh));
-    
-    for i = 1:length(measSet.forceCh)
-        rawMeas(:,i) = inputDat.(fn{i+2});  % Raw measurements from the daq
-    end
-    
-    biasRemMeas = rawMeas - measSet.forceBias;  % Remove the bias measurements
-    procData.forceData.Fx = biasRemMeas*measSet.MFx';    % Multiply with the scaling matrix
-    procData.forceData.Fy = biasRemMeas*measSet.MFy';
-    procData.forceData.Fz = biasRemMeas*measSet.MFz';
-    
-end
-
-if measSet.therm
-    ambientT = 22.5;  % Measure ambient temperature with a meter
-    scaleFact = 1/.0041276;     % Scale factor based on k-type gradations and amplification. Modify as reqd, will need a brief calibration
-    procData.thermData = inputDat.(fn{9})*scaleFact + ambientT;  % Temperature in degrees celcius
-end
-
-end

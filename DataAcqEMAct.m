@@ -4,35 +4,39 @@
 % Written by Bharat Dandu (bharatdandu@ucsb.edu) - 4/17/21
 % Expanded 6/17/21
 
-clearvars -except forceBias;
+% if exist('run','var')
+%     clearvars -except forceBias swGain run recordFlag;
+% else
+%     clearvars -except forceBias swGain recordFlag;
+% end
 
 %% Setup
 
 % Setup up the measurement channels
 measSet.volt = true;
 measSet.curr = true;
-measSet.ldv = false;
-measSet.force = true;
-measSet.therm = true;
+measSet.ldv = true;
+measSet.force = false;
+measSet.therm = false;
 % NOTE that if you modify the channels being used, modify forceBiasMeas and
 % parseData functions appropriately
 
 % Modes and measurement lengths
-measSet.measTime = 3;  % Measurement is x second long. Note that zero padding is added in addition to this
+measSet.measTime = 5;  % Measurement is x second long. Note that zero padding is added in addition to this
 measSet.zPadLen = .1;  % zero pad time in secs
 measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
-measSet.nReps = 3;   % Repetitions to clean up the data
+measSet.nReps = 5;   % Repetitions to clean up the data
 
 measSet.mode = 'sine';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
 
 switch measSet.mode
     case 'sine'
-        measSet.freqIntrst = 400;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
+        measSet.freqIntrst = 190;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
     case 'chirp'
         measSet.freqIntrst = [.5 1000];
     case 'square'
         measSet.freqIntrst = 2;
-        measSet.normDCOff = .5;
+        measSet.normDCOffset = .5;
     case 'dc_steps'
         nSteps = 11;  % Number of frequency levels b/w -ve amp and + amp. Make sure this is odd to include 0
         warning('Please ensure that measTime*fs is cleanly divided by nSteps, else this gets messy')
@@ -43,7 +47,7 @@ if ~exist('run','var')
 end
 
 currTargetSet = true;   % Decide if we want to specify a current target so that the swGain is set following a brief calibration phase (This same script run for a shorter time)
-currTarget = 1;     % Current target, in Amps p-p (AC) or Amps (DC).
+currTarget = 2;     % Current target, in Amps p-p (AC) or Amps (DC).
 % This assumes linearity of the current measurement with the scaling of
 % voltage. NOTE - Verify how well this is working, and try and ensure that
 % there is no clipping.
@@ -81,7 +85,7 @@ measSet.ldvCh = "ai"+"2";
 measSet.forceCh = "ai"+["3" "4" "5" "6" "7" "13"];
 measSet.thermCh = "ai"+"10";
 
-dq.Rate = 20000;    % Doesn't always work. Do some testing to ensure that this fs is supported
+dq.Rate = 40000;    % Doesn't always work. Do some testing to ensure that this fs is supported
 measSet.fs = dq.Rate;
 
 % Output channels
@@ -111,6 +115,7 @@ if measSet.force
     if ~exist('forceBias','var')
         input('Re-taking force bias measurements. Please acknowledge that there is nothing contacting the force sensor')
         forceBias = forceBiasMeas(dq,measSet);
+        input('Done taking bias measurements. Press Enter to continue');
     end
 end
 if measSet.therm
@@ -231,18 +236,19 @@ if recordFlag
     
     save(fName,'measmnts','measSet','srcSig','currPP');     % Probably easier as all processing is in matlab
     %writematrix(data,fName);
+    clearvars run;  % Clear the run variable after data is recorded
 end
 
 %% Recompute swGain if specified, reset the run
 if currTargetSet
     recordFlag = true;  % Set it up so data is recorded for the next trial
     
-    if run == 1
-        swGain = swGain * currTarget / currPP;    % Compute updated sw gain
-        run = run + 1;
-        DataAcqEMAct;   % Start the next run with the actual specified values
-    else
-        clearvars run;
+    if exist('run','var')   % Run will not exist once data is recorded, so it won't go into an inf loop
+        if run == 1
+            swGain = swGain * currTarget / currPP;    % Compute updated sw gain
+            run = run + 1;
+            DataAcqEMAct;   % Start the next run with the actual specified values
+        end
     end
     
 end

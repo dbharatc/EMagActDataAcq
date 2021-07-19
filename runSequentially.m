@@ -10,6 +10,7 @@
 % comment out the lines where the values of the parameters we wish to set
 % here are defined
 warning('Ensure that you have commented out the portion of DataAcqEMAct.m that sets the parameter being modified here')
+warning('Also ensure that the variable has been added to the clearvars exception list')
 
 %% For chirps
 
@@ -17,24 +18,40 @@ warning('Ensure that you have commented out the portion of DataAcqEMAct.m that s
 % on varying the swGain. Else you have to tweak that value with some trial
 % and error
 
-currTargets = [.1 .2:.2:1 2];
+% currTargets = [.1 .2:.2:1 2];
+% 
+% for currIndex = 1:length(currTargets)
+%     currTarget = currTargets(currIndex);
+%     DataAcqEMAct;
+%     pause(5);
+% end
 
-for i = 1:length(currTargets)
-    currTarget = currTargets(i);
-    DataAcqEMAct;
-end
+%% Square waves
+
+% currTargets = [.1 .2:.2:1];
+% 
+% for currIndex = 1:length(currTargets)
+%     currTarget = currTargets(currIndex);
+%     DataAcqEMAct;
+%     pause(5);
+% end
 
 % Do something similar for step resp if the above works well
 
 %% For discrete sines
 
-% freqsInterest = [5 10 20 40 80 160 320 640];
-% 
-% for i = 1:length(currTargets)
-%     measSet.freqIntrst = freqsInterest(i);
-%     DataAcqEMAct;
-% end
-% % Add another loop for the current targets
+%freqsInterest = [5 10 20 40 80 160 320 640];
+freqsInterest = logspace(log10(5),log10(1000),20);
+currTargets = [.1 .5 1 2];
+
+for currIndex = 1:length(currTargets)
+    currTarget = currTargets(currIndex);
+    for freqIndex = 1:length(freqsInterest)
+        measSet.freqIntrst = freqsInterest(freqIndex);
+        DataAcqEMAct;
+    end
+end
+% Add another loop for the current targets
 
 %% For force
 

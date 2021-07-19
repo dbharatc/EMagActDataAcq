@@ -25,7 +25,7 @@ currData = mean(currData,2);
 if measSet.ldv
     
     if ndims(measmnts.velData) == 2  % Lowpass and Collapse to a single channel by averaging across repetitions
-        velData = filter(b,a,measmnts.velData);
+        velData = measmnts.velData;%;filter(b,a,measmnts.velData);
         velData = mean(velData,2);
         velData = detrend(velData);
     end
@@ -34,8 +34,6 @@ if measSet.ldv
     %accDataFilt = medfilt1(accData,10); % some simple cleanup
     
     posData = cumtrapz(velData)/measSet.fs;    % position in m. NOTE - examine this further
-    
-    timeVec = measmnts.measTimeVec;
     
 end
 
@@ -52,13 +50,14 @@ if measSet.force
 end
 
 if measSet.therm
-    if ndims(measmnts.therm) == 2  % Lowpass and Collapse to a single channel by averaging across repetitions
+    if ndims(measmnts.thermData) == 2  % Lowpass and Collapse to a single channel by averaging across repetitions
         thermData = filter(b,a,measmnts.thermData);
         
         thermData = mean(thermData,2);
     end
 end
 
+timeVec = measmnts.measTimeVec;
 
 %% Basic time domain plotting
 
@@ -74,7 +73,7 @@ end
 
 if measSet.force
     figure(1)
-    plot(timeVec,forceData.Fz,timeVec,sqrt(forceData.Fx.^2+forceData.Fy.^2),timeVec,currData);
+    plot(timeVec,forceData.Fz,timeVec,sqrt(forceData.Fx.^2+forceData.Fy.^2));%,timeVec,currData);
     legend('Measured axial force (N)','Measured radial force (N)','Current thru actuator (A)')
     xlabel('Time (s)')
     title("Force of the actuator, "+num2str(currPP,'%.2f')+" A p-p" )
@@ -108,7 +107,7 @@ if measSet.ldv
             
             figure(4)
             thd(velData,measSet.fs);    % add an output argument to supress the plot and save the info
-            xlim([0 1]);    % Limit the plot to 1kHz
+            xlim([0 7]);    % Limit the plot to 1kHz
             %%
         case  'chirp'
             figure(2)

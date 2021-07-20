@@ -15,23 +15,23 @@
 % Setup up the measurement channels
 measSet.volt = true;
 measSet.curr = true;
-measSet.ldv = true;
-measSet.force = false;
+measSet.ldv = false;
+measSet.force = true;
 measSet.therm = false;
 % NOTE that if you modify the channels being used, modify forceBiasMeas and
 % parseData functions appropriately
 
 % Modes and measurement lengths
-measSet.measTime = 5;  % Measurement is x second long. Note that zero padding is added in addition to this
-measSet.zPadLen = .1;  % zero pad time in secs
+measSet.measTime = 11;  % Measurement is x second long. Note that zero padding is added in addition to this
+measSet.zPadLen = .5;  % zero pad time in secs
 measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
-measSet.nReps = 5;   % Repetitions to clean up the data
+measSet.nReps = 3;   % Repetitions to clean up the data
 
-measSet.mode = 'sine';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
+measSet.mode = 'dc_steps';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
 
 switch measSet.mode
     case 'sine'
-        measSet.freqIntrst = 190;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
+        measSet.freqIntrst = 100;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
     case 'chirp'
         measSet.freqIntrst = [.5 1000];
     case 'square'
@@ -63,10 +63,10 @@ if run == 1
         swGain = .5;    % Start with a low value for scalability
         recordFlag = false;
     else
-        swGain = 1;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
+        swGain = 2;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
         % CAUTION - Do not exceed gain of 3 beyond a couple of seconds, and NEVER
         % exceed 4, at risk of burning out the coil or causing excessive wear
-        recordFlag = true;
+        recordFlag = false;
     end
 end
 if swGain > 4
@@ -85,7 +85,7 @@ measSet.ldvCh = "ai"+"2";
 measSet.forceCh = "ai"+["3" "4" "5" "6" "7" "13"];
 measSet.thermCh = "ai"+"10";
 
-dq.Rate = 40000;    % Doesn't always work. Do some testing to ensure that this fs is supported
+dq.Rate = 30000;    % Doesn't always work. Do some testing to ensure that this fs is supported
 measSet.fs = dq.Rate;
 
 % Output channels
@@ -130,7 +130,12 @@ end
 timeVec = 0:1/measSet.fs:(measSet.measTime-2*measSet.zPadLen-1/measSet.fs);
 zPad = zeros(1,round(measSet.zPadLen*measSet.fs));
 
+clearvars srcSig;
+
 switch measSet.mode
+    case 'dc'
+        srcSig = swGain*ones(1,length(timeVec));
+        
     case 'sine'
         srcSig = swGain*sin(2*pi*timeVec*measSet.freqIntrst);   % Not windowing for now   
         srcSig = [zPad srcSig zPad];    % manually handling zero padding. Not windowing for simplicity
@@ -230,6 +235,8 @@ if recordFlag
     endTag = datetime('now','Format','M_d_yy__HH_mm_ss')   ;      % can make this just a regular measurement number (iterated for reps) or datetime
     if strcmp(measSet.mode,'chirp')
         fName = "Data/" + string(measSet.mode) + "_" + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
+    elseif strcmp(measSet.mode,'dc_steps') || strcmp(measSet.mode,'dc')
+        fName = "Data/" + string(measSet.mode) + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
     else
         fName = "Data/" + string(measSet.mode) + "_" + num2str(measSet.freqIntrst,'%.1f') + "_Hz_" + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
     end

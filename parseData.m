@@ -8,7 +8,7 @@ fn = fieldnames(inputDat);
 % For ex, Ch 5 will be inputDat.AD1_5, see if we're getting this
 
 if measSet.volt
-    procData.voltData = inputDat.(fn{1})*10;  % Voltage in volts. Based on some tests, figure out if a voltage divider ckt (or a 10x probe) is reqd
+    procData.voltData = inputDat.(fn{1});  % Voltage in volts. Based on some tests, figure out if a voltage divider ckt (or a 10x probe) is reqd
 end
 
 if measSet.curr

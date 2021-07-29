@@ -23,6 +23,7 @@ warning('Also ensure that the variable has been added to the clearvars exception
 % for currIndex = 1:length(currTargets)
 %     currTarget = currTargets(currIndex);
 %     DataAcqEMAct;
+%     disp("Done with current target = "+string(currTargets(currIndex))+"A")
 %     pause(5);
 % end
 
@@ -33,6 +34,7 @@ warning('Also ensure that the variable has been added to the clearvars exception
 % for currIndex = 1:length(currTargets)
 %     currTarget = currTargets(currIndex);
 %     DataAcqEMAct;
+%     disp("Done with current target = "+string(currTargets(currIndex))+"A")
 %     pause(5);
 % end
 
@@ -50,7 +52,9 @@ for currIndex = 1:length(currTargets)
         measSet.freqIntrst = freqsInterest(freqIndex);
         DataAcqEMAct;
     end
+    disp("Done with current target = "+string(currTargets(currIndex))+"A")
 end
+
 % Add another loop for the current targets
 
 %% For force

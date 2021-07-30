@@ -14,6 +14,8 @@
 
 %% Definitions / manipulations
 
+enablePlots = false;
+
 [b,a] = butter(8,1000/(measSet.fs/2));
 
 currDataFilt = movmean(measmnts.currData,20);       % Current is pretty much the only mandatory measurement
@@ -57,8 +59,18 @@ if measSet.therm
     end
 end
 
+% Mode specific calculations
+switch measSet.mode
+    case 'chirp'
+        [TFxy,Freq] = tfestimate(srcSig,accData,[],[],[],measSet.fs);
+    case 'sine'
+        thdMeas = thd(velData(round(measSet.zPadLen*measSet.fs + 1) : round((measSet.measTime-measSet.zPadLen)*measSet.fs)),measSet.fs);
+end
+
 timeVec = measmnts.measTimeVec;
 
+
+if enablePlots
 %% Basic time domain plotting
 
 if measSet.ldv
@@ -117,7 +129,6 @@ if measSet.ldv
             title("Velocity of the actuator, "+num2str(currPP,'%.2f')+" A p-p" )
             
             figure(3)
-            [TFxy,Freq] = tfestimate(srcSig,accData,[],[],[],measSet.fs);
             plot(Freq,20*log10(abs(TFxy)))
             xlabel('Frequency')
             ylabel('Magnitude response (in db)')
@@ -138,5 +149,6 @@ if measSet.ldv
             title("Measured position of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p")
     end
     
+end
 end
 

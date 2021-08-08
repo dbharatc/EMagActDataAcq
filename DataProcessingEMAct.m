@@ -14,7 +14,7 @@
 
 %% Definitions / manipulations
 
-enablePlots = false;
+enablePlots = true;
 
 [b,a] = butter(8,1000/(measSet.fs/2));
 
@@ -60,11 +60,14 @@ if measSet.therm
 end
 
 % Mode specific calculations
+if measSet.ldv
 switch measSet.mode
     case 'chirp'
-        [TFxy,Freq] = tfestimate(srcSig,accData,[],[],[],measSet.fs);
+        %[TFxy,Freq] = tfestimate(srcSig,accData,[],[],[],measSet.fs);
+        [TFxy,Freq] = tfestimate(currData,accData,[],[],[],measSet.fs);
     case 'sine'
         thdMeas = thd(velData(round(measSet.zPadLen*measSet.fs + 1) : round((measSet.measTime-measSet.zPadLen)*measSet.fs)),measSet.fs);
+end
 end
 
 timeVec = measmnts.measTimeVec;

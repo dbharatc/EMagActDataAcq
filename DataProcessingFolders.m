@@ -8,7 +8,7 @@ clearvars
 
 %% Definitions
 
-folderName = "Data/Ferrofluid 1/DSS";
+folderName = "Data/Ferrofluid 2/DSS";
 
 fileInfo = dir(folderName+"/*.mat");
 numFiles = length(fileInfo);
@@ -19,7 +19,7 @@ currData = zeros(1,numFiles);
 %% Run through files, collect data
 
 load(fullfile(folderName, fileInfo(1).name));    % Load 1 file to check what type of data is being considered
-if measSet.mode == 'sine'   
+if strcmp(string(measSet.mode),"sine")   
     freqsInterest = logspace(log10(5),log10(1000),20);  % Data is slightly more involved for discrete sine data, pre-define
     currTargets = [.1 .5 1 2];
     vel = cell(length(freqsInterest),length(currTargets));
@@ -137,7 +137,7 @@ switch measSet.mode
         
         % Specify a frequency, and plot the positions for diff
         % current values
-        freqIndPlt = 5;
+        freqIndPlt = 14;
         figure(4);
         hold on
         for i = 1:length(currTargets)

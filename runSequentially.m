@@ -42,9 +42,10 @@ warning('Also ensure that the variable has been added to the clearvars exception
 
 %% For discrete sines
 
-%freqsInterest = [5 10 20 40 80 160 320 640];
+% %freqsInterest = [5 10 20 40 80 160 320 640];
 freqsInterest = logspace(log10(5),log10(1000),20);
-currTargets = [.1 .5 1 2];
+currTargets = [.5 1 2];
+% currTargets = .1;   % Seem to have to change LDV scaling term for small current values
 
 for currIndex = 1:length(currTargets)
     currTarget = currTargets(currIndex);
@@ -53,6 +54,7 @@ for currIndex = 1:length(currTargets)
         DataAcqEMAct;
     end
     disp("Done with current target = "+string(currTargets(currIndex))+"A")
+    pause(5);
 end
 
 % Add another loop for the current targets

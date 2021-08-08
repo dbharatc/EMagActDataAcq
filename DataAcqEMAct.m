@@ -22,32 +22,35 @@ measSet.therm = false;
 % parseData functions appropriately
 
 % Modes and measurement lengths
-measSet.measTime = 10;  % Measurement is x second long. Note that zero padding is added in addition to this
+measSet.measTime = 11;  % Measurement is x second long. Note that zero padding is added in addition to this
 measSet.zPadLen = .1;  % zero pad time in secs
-measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
 measSet.nReps = 5;   % Repetitions to clean up the data
 
-measSet.mode = 'square';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
+measSet.mode = 'dc_steps';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
 
 switch measSet.mode
     case 'sine'
-        %measSet.freqIntrst = 100;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
+        measSet.freqIntrst = 1000;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
     case 'chirp'
-        measSet.freqIntrst = [.5 1000];
+        measSet.freqIntrst = [1 1000];
     case 'square'
         measSet.freqIntrst = 2;
         measSet.normDCOffset = .5;
     case 'dc_steps'
         nSteps = 11;  % Number of frequency levels b/w -ve amp and + amp. Make sure this is odd to include 0
-        warning('Please ensure that measTime*fs is cleanly divided by nSteps, else this gets messy')
+        if rem(measSet.measTime*100,nSteps) ~= 0
+            warning('Please ensure that measTime*fs is cleanly divided by nSteps, else this gets messy');
+        end
 end
+
+measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
 
 if ~exist('run','var')
     run = 1;
 end
 
 currTargetSet = true;   % Decide if we want to specify a current target so that the swGain is set following a brief calibration phase (This same script run for a shorter time)
-currTarget = 2;     % Current target, in Amps p-p (AC) or Amps (DC).
+currTarget = 4;     % Current target, in Amps p-p (AC) or Amps (DC).
 % This assumes linearity of the current measurement with the scaling of
 % voltage. NOTE - Verify how well this is working, and try and ensure that
 % there is no clipping.
@@ -60,16 +63,19 @@ if run == 1
         measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
         measSet.nReps = 3;   % Repetitions to clean up the data
         
-        swGain = .5;    % Start with a low value for scalability
+        swGain = .75;    % Start with a low value for scalability
         recordFlag = false;
     else
-        swGain = 1.5;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
+        swGain = 1;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
         % CAUTION - Do not exceed gain of 3 beyond a couple of seconds, and NEVER
         % exceed 4, at risk of burning out the coil or causing excessive wear
         recordFlag = false;
     end
 end
 if swGain > 4
+    if exist('run','var')
+        run = 1;    % Reset the run
+    end
     error("Reduce sw gain");
 end
 
@@ -151,6 +157,7 @@ switch measSet.mode
         
     case 'dc_steps'
         amp = linspace(-swGain, swGain, nSteps);
+        %amp = [2*amp(1) amp 2*amp(end)];
         for i = 1:nSteps
             indPerStep = round(measSet.measTime*measSet.fs/nSteps);     % indices per step
             srcSig(((i-1)*indPerStep +1): i*indPerStep) = amp(i)*ones(1,indPerStep);

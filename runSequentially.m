@@ -10,7 +10,7 @@
 % comment out the lines where the values of the parameters we wish to set
 % here are defined
 warning('Ensure that you have commented out the portion of DataAcqEMAct.m that sets the parameter being modified here')
-warning('Also ensure that the variable has been added to the clearvars exception list')
+%warning('Also ensure that the variable has been added to the clearvars exception list')
 
 %% For chirps
 
@@ -19,6 +19,7 @@ warning('Also ensure that the variable has been added to the clearvars exception
 % and error
 
 % currTargets = [.1 .2:.2:1 2];
+% % % currTargets = [.1 .2:.2:1];
 % 
 % for currIndex = 1:length(currTargets)
 %     currTarget = currTargets(currIndex);
@@ -44,19 +45,20 @@ warning('Also ensure that the variable has been added to the clearvars exception
 
 % %freqsInterest = [5 10 20 40 80 160 320 640];
 freqsInterest = logspace(log10(5),log10(1000),20);
-currTargets = [.5 1 2];
-% currTargets = .1;   % Seem to have to change LDV scaling term for small current values
+%freqsInterest = freqsInterest(14:20);
+% currTargets = [.5 1 2];
+currTargets = .1;   % Seem to have to change LDV scaling term for small current values
 
 for currIndex = 1:length(currTargets)
     currTarget = currTargets(currIndex);
     for freqIndex = 1:length(freqsInterest)
         measSet.freqIntrst = freqsInterest(freqIndex);
         DataAcqEMAct;
+        pause(5);
     end
     disp("Done with current target = "+string(currTargets(currIndex))+"A")
-    pause(5);
+    
 end
-
 % Add another loop for the current targets
 
 %% For force

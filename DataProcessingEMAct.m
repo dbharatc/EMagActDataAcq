@@ -14,7 +14,7 @@
 
 %% Definitions / manipulations
 
-enablePlots = true;
+enablePlots = false;
 
 [b,a] = butter(8,1000/(measSet.fs/2));
 
@@ -80,6 +80,7 @@ if measSet.ldv
     
     figure(1)
     plot(timeVec,accDataFilt/9.8,timeVec,currData);
+    %plot(timeVec*2,20*log10((envelope(accDataFilt/9.8))))
     legend('Measured Acc (g)','Current thru actuator (A)')
     xlabel('Time (s)')
     title("Acceleration of the actuator, "+num2str(measSet.freqIntrst)+" Hz, "+num2str(currPP,'%.2f')+" A p-p" )
@@ -135,6 +136,7 @@ if measSet.ldv
             plot(Freq,20*log10(abs(TFxy)))
             xlabel('Frequency')
             ylabel('Magnitude response (in db)')
+            %title("Transfer fn of the actuator, (acceleration) "+num2str(currPP,'%.2f')+" A p-p");
             title("Transfer fn of the actuator, (acceleration) "+num2str(currPP,'%.2f')+" A p-p");
             xlim([0 1000])
             

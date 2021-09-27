@@ -8,7 +8,7 @@ clearvars
 
 %% Definitions
 
-folderName = "Data/Ferrofluid 2/DSS";
+folderName = "Data/Ferrofluid new/Chirp";
 
 fileInfo = dir(folderName+"/*.mat");
 numFiles = length(fileInfo);

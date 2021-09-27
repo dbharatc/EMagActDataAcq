@@ -24,13 +24,14 @@ measSet.therm = false;
 % Modes and measurement lengths
 measSet.measTime = 11;  % Measurement is x second long. Note that zero padding is added in addition to this
 measSet.zPadLen = .1;  % zero pad time in secs
-measSet.nReps = 5;   % Repetitions to clean up the data
+measSet.nReps = 1;   % Repetitions to clean up the data
 
 measSet.mode = 'dc_steps';  % Choose 'sine', 'chirp', 'square', 'dc_steps' stimuli types
 
 switch measSet.mode
     case 'sine'
-        measSet.freqIntrst = 1000;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
+        %measSet.freqIntrst = 500;   % frequency of interest. Set start and end freqs in an array if mode is 'chirp'
+        measSet.freqIntrst = 5;
     case 'chirp'
         measSet.freqIntrst = [1 1000];
     case 'square'
@@ -41,6 +42,10 @@ switch measSet.mode
         if rem(measSet.measTime*100,nSteps) ~= 0
             warning('Please ensure that measTime*fs is cleanly divided by nSteps, else this gets messy');
         end
+        forcedPause = 4;    % Forced pause in seconds after an impulse
+    case 'dc_impulse'
+        impWidth = 5;  % Set width in ms of impulsive square pulse
+        forcedPause = 10;    % Forced pause in seconds after an impulse
 end
 
 measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
@@ -49,8 +54,8 @@ if ~exist('run','var')
     run = 1;
 end
 
-currTargetSet = true;   % Decide if we want to specify a current target so that the swGain is set following a brief calibration phase (This same script run for a shorter time)
-currTarget = 4;     % Current target, in Amps p-p (AC) or Amps (DC).
+currTargetSet = false;   % Decide if we want to specify a current target so that the swGain is set following a brief calibration phase (This same script run for a shorter time)
+% currTarget = 2;     % Current target, in Amps p-p (AC) or Amps (DC).
 % This assumes linearity of the current measurement with the scaling of
 % voltage. NOTE - Verify how well this is working, and try and ensure that
 % there is no clipping.
@@ -63,12 +68,13 @@ if run == 1
         measSet.measTime = measSet.measTime + 2*measSet.zPadLen;
         measSet.nReps = 3;   % Repetitions to clean up the data
         
-        swGain = .75;    % Start with a low value for scalability
+        swGain = .5;    % Start with a low value for scalability
         recordFlag = false;
     else
         swGain = 1;     % Gain factor set in software. If we stick to the marked spot on the amp, 1 roughly corresponds to 1A p-p.
         % CAUTION - Do not exceed gain of 3 beyond a couple of seconds, and NEVER
         % exceed 4, at risk of burning out the coil or causing excessive wear
+        % recordFlag = true;
         recordFlag = false;
     end
 end
@@ -164,12 +170,18 @@ switch measSet.mode
         end
         srcSig = [zPad srcSig zPad];
         
+    case 'dc_impulse'
+        srcSig = zeros(1,length(timeVec));
+        srcSig(round((.1*measSet.fs:(.1+impWidth*.001)*measSet.fs))) = swGain;    % 100ms in, fire out an impulse
+        srcSig(round((.3*measSet.fs:(.3+impWidth*.001)*measSet.fs))) = -swGain;    % 100ms in, fire out an impulse
         
     case 'others'   % other experimental stimuli
-        srcSig = swGain*sin(2*pi*175*(0:1/measSet.fs:.04)).*hann((fs/25+1))';
-        srcSig = swGain*sin(2*pi*175*(0:1/measSet.fs:.04)).*exp(-120*(0:1/measSet.fs:.04));
+        %srcSig = swGain*sin(2*pi*175*(0:1/measSet.fs:.04)).*hann((fs/25+1))';
+        %srcSig = swGain*sin(2*pi*175*(0:1/measSet.fs:.04)).*exp(-120*(0:1/measSet.fs:.04));
         %srcSig = [repmat(zPad,1,3) srcSig repmat(zPad,1,2)];
-        
+        [srcSig,fs] = audioread('ConcSigLong.wav');
+        srcSig = srcSig';
+        dq.Rate = fs;
 end
 
 % Define all measurement signals anyway
@@ -223,7 +235,11 @@ for i = 1:measSet.nReps
     
     measmnts.measTimeVec = inputDat.Time;
     
-    pause(.5);  % Add a .5 sec delay between reps
+    if string(measSet.mode) == "dc_steps" || string(measSet.mode) == "dc_impulse"
+        pause(forcedPause);
+    else    
+        pause(.5);  % Add a .5 sec delay between reps
+    end
 end
 
 
@@ -247,7 +263,7 @@ if recordFlag
     endTag = datetime('now','Format','M_d_yy__HH_mm_ss')   ;      % can make this just a regular measurement number (iterated for reps) or datetime
     if strcmp(measSet.mode,'chirp')
         fName = "Data/" + string(measSet.mode) + "_" + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
-    elseif strcmp(measSet.mode,'dc_steps') || strcmp(measSet.mode,'dc')
+    elseif strcmp(measSet.mode,'dc_steps') || strcmp(measSet.mode,'dc_impulse')
         fName = "Data/" + string(measSet.mode) + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
     else
         fName = "Data/" + string(measSet.mode) + "_" + num2str(measSet.freqIntrst,'%.1f') + "_Hz_" + num2str(currPP,'%.1f') + "_A_pp_"+string(endTag)+".mat";    % choose .mat or .csv
